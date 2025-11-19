@@ -141,3 +141,107 @@ def check_quality(light_data, dark_data, voltage_check=-0.5, threshold_ratio=3.0
         'i_light_check': i_light,
         'i_dark_check': i_dark
     }
+
+# --- Voc-Light Analysis Helpers ---
+
+def interp_y_at_x(x, xa, ya):
+    for i in range(len(xa)-1):
+        x0, x1 = xa[i], xa[i+1]
+        if (x0 <= x <= x1) or (x1 <= x <= x0):
+            if x1 == x0:
+                return np.nan
+            t = (x - x0) / (x1 - x0)
+            return ya[i]*(1-t) + ya[i+1]*t
+    return np.nan
+
+def zero_cross_x(xa, ya):
+    for i in range(len(ya)-1):
+        y0, y1 = ya[i], ya[i+1]
+        if y0 == 0:
+            return xa[i]
+        if y0 * y1 < 0:
+            t = y0 / (y0 - y1)
+            return xa[i] + t * (xa[i+1] - xa[i])
+    return np.nan
+
+def iv_params(Vseg, Iseg):
+    Voc = zero_cross_x(Vseg, Iseg)
+    Isc = interp_y_at_x(0.0, Vseg, Iseg)
+    
+    if np.isnan(Voc) or np.isnan(Isc) or Voc == 0 or Isc == 0:
+        return float("nan"), float("nan"), float("nan")
+        
+    # Use PV convention: photocurrent positive => Iph = -I
+    Iph = -Iseg
+    vmin, vmax = (0, Voc) if Voc >= 0 else (Voc, 0)
+    m = (Vseg >= vmin) & (Vseg <= vmax)
+    
+    if m.sum() < 2:
+        return float(Voc), float(Isc), float("nan")
+        
+    P = Vseg[m] * Iph[m]
+    if len(P) == 0:
+         return float(Voc), float(Isc), float("nan")
+
+    k = int(np.nanargmax(np.abs(P)))
+    Vmp, Imp = Vseg[m][k], Iph[m][k]
+    FF = abs(Vmp * Imp) / (abs(Voc * Isc)) if (Voc*Isc) != 0 else float("nan")
+    return float(Voc), float(Isc), float(FF)
+
+def analyze_iv_numpy(V, I):
+    """
+    Analyzes a single IV curve (numpy arrays).
+    Returns Voc, Isc, FF.
+    """
+    # 1) scan direction from first two voltages
+    if len(V) < 2:
+        return {'Voc': np.nan, 'Isc': np.nan, 'FF': np.nan}
+
+    # 2) single vs double (look for one sign change in dV)
+    dv = np.diff(V)
+    sign = np.sign(dv)
+    # treat zeros by carrying last nonzero sign
+    for i in range(1, len(sign)):
+        if sign[i] == 0:
+            sign[i] = sign[i-1]
+    changes = np.where(np.diff(sign) != 0)[0]
+    
+    if len(changes) == 0:
+        scan_type = "single"
+        segments = [(0, len(V)-1)]
+    else:
+        scan_type = "double"
+        tp = changes[0]
+        segments = [(0, tp), (tp+1, len(V)-1)]  # forward, then reverse
+
+    seg_results = []
+    try:
+        for a, b in segments:
+            voc, isc, ff = iv_params(V[a:b+1], I[a:b+1])
+            seg_results.append((voc, isc, ff))
+    
+        def avg_or_pick(vals):
+            xs = [x for x in vals if isinstance(x, (int, float)) and not math.isnan(x)]
+            if not xs:
+                return float("nan")
+            return float(np.mean(xs)) if len(xs) > 1 else float(xs[0])
+    
+        if scan_type == "single":
+            Voc, Isc, FF = seg_results[0]
+        else:
+            Voc = avg_or_pick([s[0] for s in seg_results])
+            Isc = avg_or_pick([s[1] for s in seg_results])
+            FF  = avg_or_pick([s[2] for s in seg_results])
+    
+        return {
+            "Voc": Voc,
+            "Isc": Isc,
+            "FF": FF,
+        }
+    except Exception as e:
+        print(f"Analysis Error: {e}")
+        return {
+            "Voc": np.nan,
+            "Isc": np.nan,
+            "FF": np.nan,
+        }
