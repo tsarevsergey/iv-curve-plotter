@@ -1,0 +1,16 @@
+# Previous scripts
+IVcurve_V3.py
+PD paramRFv2.py
+
+# Data files
+*.dat
+
+# System and Environment
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+.vscode/
+.env
+venv/
+.venv/
