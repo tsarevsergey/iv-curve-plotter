@@ -185,7 +185,7 @@ if data_results:
                         y=y_line,
                         mode='lines',
                         name=f"{name} (n={n_factor:.2f})",
-                        line=dict(color=color, dash='dash'),
+                        line=dict(color=color, dash='dash', width=3),
                         showlegend=True
                     ))
                     
@@ -195,7 +195,7 @@ if data_results:
                         y=df_fit['Voc'],
                         mode='markers',
                         name=f"{name} (Fitted)",
-                        marker=dict(color=color, symbol='circle-open', size=12, line=dict(width=2)),
+                        marker=dict(color=color, symbol='circle-open', size=14, line=dict(width=2)),
                         showlegend=False
                     ))
 
@@ -205,9 +205,37 @@ if data_results:
                 yaxis_title="Voc (V)",
                 height=600,
                 width=800,
-                legend=dict(font=dict(size=16))
+                font=dict(size=18),
+                xaxis=dict(title_font=dict(size=24), tickfont=dict(size=20)),
+                yaxis=dict(title_font=dict(size=24), tickfont=dict(size=20)),
+                legend=dict(font=dict(size=20))
             )
-            st.plotly_chart(fig_voc)
+            
+            config = {
+                'toImageButtonOptions': {
+                    'format': 'png',
+                    'filename': 'voc_analysis_plot',
+                    'height': 600,
+                    'width': 800,
+                    'scale': 3
+                }
+            }
+            
+            if st.checkbox("Render as Static Image (Right-Click -> Copy)", key="static_voc"):
+                try:
+                    # Enforce white background for PPTX
+                    fig_voc.update_layout(
+                        plot_bgcolor="white",
+                        paper_bgcolor="white",
+                        font=dict(color="black")
+                    )
+                    img_bytes = fig_voc.to_image(format="png", scale=2, width=800, height=600)
+                    st.image(img_bytes, caption="High-Res Static Image", use_column_width=False, width=800)
+                except Exception as e:
+                    st.error(f"Static image generation failed: {e}. Please restart the app.")
+                    st.plotly_chart(fig_voc, config=config)
+            else:
+                st.plotly_chart(fig_voc, config=config)
 
     with tab2:
         st.subheader("Jsc vs Light Intensity")
@@ -228,7 +256,7 @@ if data_results:
                 y=y_val,
                 mode='markers',
                 name=name,
-                marker=dict(color=color, size=10)
+                marker=dict(color=color, size=12)
             ))
             
             # Linear Fit
@@ -244,16 +272,35 @@ if data_results:
                     y=y_line,
                     mode='lines',
                     name=f"{name} (Slope={slope:.2e})",
-                    line=dict(color=color, dash='dash')
+                    line=dict(color=color, dash='dash', width=3)
                  ))
         
         fig_jsc.update_layout(
             xaxis_title="Light Power (mW/cm²)",
             yaxis_title="Isc (A)",
             height=600,
-            width=800
+            width=800,
+            font=dict(size=18),
+            xaxis=dict(title_font=dict(size=24), tickfont=dict(size=20)),
+            yaxis=dict(title_font=dict(size=24), tickfont=dict(size=20)),
+            legend=dict(font=dict(size=20))
         )
-        st.plotly_chart(fig_jsc)
+        
+        if st.checkbox("Render as Static Image (Right-Click -> Copy)", key="static_jsc"):
+            try:
+                # Enforce white background for PPTX
+                fig_jsc.update_layout(
+                    plot_bgcolor="white",
+                    paper_bgcolor="white",
+                    font=dict(color="black")
+                )
+                img_bytes = fig_jsc.to_image(format="png", scale=2, width=800, height=600)
+                st.image(img_bytes, caption="High-Res Static Image", use_column_width=False, width=800)
+            except Exception as e:
+                st.error(f"Static image generation failed: {e}. Please restart the app.")
+                st.plotly_chart(fig_jsc, config=config)
+        else:
+            st.plotly_chart(fig_jsc, config=config)
 
     with tab3:
         st.subheader("FF vs Light Intensity")
@@ -269,7 +316,8 @@ if data_results:
                 y=df_valid['FF'],
                 mode='lines+markers',
                 name=name,
-                marker=dict(color=color, size=10)
+                marker=dict(color=color, size=12),
+                line=dict(width=3)
             ))
             
         fig_ff.update_layout(
@@ -278,9 +326,28 @@ if data_results:
             yaxis_title="Fill Factor",
             height=600,
             width=800,
-            yaxis_range=[0, 1]
+            yaxis_range=[0, 1],
+            font=dict(size=18),
+            xaxis=dict(title_font=dict(size=24), tickfont=dict(size=20)),
+            yaxis=dict(title_font=dict(size=24), tickfont=dict(size=20)),
+            legend=dict(font=dict(size=20))
         )
-        st.plotly_chart(fig_ff)
+        
+        if st.checkbox("Render as Static Image (Right-Click -> Copy)", key="static_ff"):
+            try:
+                # Enforce white background for PPTX
+                fig_ff.update_layout(
+                    plot_bgcolor="white",
+                    paper_bgcolor="white",
+                    font=dict(color="black")
+                )
+                img_bytes = fig_ff.to_image(format="png", scale=2, width=800, height=600)
+                st.image(img_bytes, caption="High-Res Static Image", use_column_width=False, width=800)
+            except Exception as e:
+                st.error(f"Static image generation failed: {e}. Please restart the app.")
+                st.plotly_chart(fig_ff, config=config)
+        else:
+            st.plotly_chart(fig_ff, config=config)
 
 else:
     st.info("Please load data to begin analysis.")

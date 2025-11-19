@@ -447,7 +447,7 @@ if st.session_state['all_parsed_files']:
                         y=abs(df['I']), 
                         mode='lines',
                         name=grp_label, # Name in legend
-                        line=dict(dash=line_dash, color=group_color_map.get(grp_label, 'black')),
+                        line=dict(dash=line_dash, color=group_color_map.get(grp_label, 'black'), width=3),
                         legendgroup=grp_label,
                         showlegend=show_legend,
                         hoverinfo='text',
@@ -466,16 +466,37 @@ if st.session_state['all_parsed_files']:
                 height=800,
                 autosize=False,
                 hovermode="closest",
+                font=dict(size=18), # Base font size
+                xaxis=dict(
+                    title_font=dict(size=24),
+                    tickfont=dict(size=20)
+                ),
+                yaxis=dict(
+                    title_font=dict(size=24),
+                    tickfont=dict(size=20)
+                ),
                 legend=dict(
                     yanchor="top",
                     y=1,
                     xanchor="left",
-                    x=1.02 # Move legend to the right
+                    x=1.02, # Move legend to the right
+                    font=dict(size=20)
                 ),
                 margin=dict(r=150) # Add right margin for legend
             )
             
-            st.plotly_chart(fig, use_container_width=False) # False to respect fixed width
+            # Config for high-res download
+            config = {
+                'toImageButtonOptions': {
+                    'format': 'png', # one of png, svg, jpeg, webp
+                    'filename': 'iv_curve_plot',
+                    'height': 800,
+                    'width': 800,
+                    'scale': 3 # Multiply title/legend/axis/canvas sizes by this factor
+                }
+            }
+            
+            st.plotly_chart(fig, use_container_width=False, config=config) # False to respect fixed width
             
         with tab2:
             st.subheader("Statistical Analysis")
@@ -483,11 +504,28 @@ if st.session_state['all_parsed_files']:
             if results:
                 df_res = pd.DataFrame(results)
                 
+                # Common Layout Update Function
+                def update_box_layout(fig):
+                    fig.update_layout(
+                        font=dict(size=18),
+                        title_font=dict(size=24),
+                        xaxis=dict(title_font=dict(size=22), tickfont=dict(size=18)),
+                        yaxis=dict(title_font=dict(size=22), tickfont=dict(size=18)),
+                        legend=dict(font=dict(size=18)),
+                        width=800,
+                        height=600,
+                        xaxis_title=None # Remove "Group Label" title
+                    )
+                    return fig
+
                 # EQE Distribution
                 st.markdown(f"### EQE Distribution at {target_voltage_eqe} V")
                 df_eqe = df_res[df_res['type'] == 'LIGHT']
                 
                 if not df_eqe.empty:
+                    # Define explicit color sequence to ensure consistency
+                    color_seq = px.colors.qualitative.Plotly
+
                     fig_eqe = px.box(
                         df_eqe, 
                         x='Group Label', 
@@ -495,9 +533,28 @@ if st.session_state['all_parsed_files']:
                         color='Group Label', 
                         points="all",
                         hover_data=['batch', 'device', 'pixel'],
-                        title=f"EQE (%) @ {target_voltage_eqe}V"
+                        title=f"EQE (%) @ {target_voltage_eqe}V",
+                        color_discrete_sequence=color_seq
                     )
-                    st.plotly_chart(fig_eqe, use_container_width=True)
+                    fig_eqe = update_box_layout(fig_eqe)
+                    
+                    # Static Image Toggle
+                    if st.checkbox("Render as Static Image (Right-Click -> Copy)", key="static_eqe"):
+                        try:
+                            # Enforce white background for PPTX, use colorful template
+                            # Enforce white background for PPTX
+                            fig_eqe.update_layout(
+                                plot_bgcolor="white",
+                                paper_bgcolor="white",
+                                font=dict(color="black")
+                            )
+                            img_bytes = fig_eqe.to_image(format="png", scale=2, width=800, height=600)
+                            st.image(img_bytes, caption="High-Res Static Image", use_column_width=False, width=800)
+                        except Exception as e:
+                            st.error(f"Static image generation failed: {e}. Please restart the app to load the new dependencies.")
+                            st.plotly_chart(fig_eqe, use_container_width=False, config=config)
+                    else:
+                        st.plotly_chart(fig_eqe, use_container_width=False, config=config)
                 else:
                     st.info("No Light data for EQE.")
                 
@@ -514,9 +571,27 @@ if st.session_state['all_parsed_files']:
                         points="all",
                         hover_data=['batch', 'device', 'pixel'],
                         title=f"Dark Current Density (A/cm²) @ {target_voltage_dark}V",
-                        log_y=True
+                        log_y=True,
+                        color_discrete_sequence=color_seq
                     )
-                    st.plotly_chart(fig_dark, use_container_width=True)
+                    fig_dark = update_box_layout(fig_dark)
+                    
+                    if st.checkbox("Render as Static Image (Right-Click -> Copy)", key="static_dark"):
+                        try:
+                            # Enforce white background for PPTX, use colorful template
+                            # Enforce white background for PPTX
+                            fig_dark.update_layout(
+                                plot_bgcolor="white",
+                                paper_bgcolor="white",
+                                font=dict(color="black")
+                            )
+                            img_bytes = fig_dark.to_image(format="png", scale=2, width=800, height=600)
+                            st.image(img_bytes, caption="High-Res Static Image", use_column_width=False, width=800)
+                        except Exception as e:
+                            st.error(f"Static image generation failed: {e}. Please restart the app to load the new dependencies.")
+                            st.plotly_chart(fig_dark, use_container_width=False, config=config)
+                    else:
+                        st.plotly_chart(fig_dark, use_container_width=False, config=config)
                 else:
                     st.info("No Dark data found.")
 
